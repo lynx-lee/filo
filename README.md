@@ -337,6 +337,9 @@ make test
 - 💬 交互式审查模式
 - 🎨 美化终端界面
 
+### v2.0.1
+- 🎉 新增Windows电脑安装脚本支持
+
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
