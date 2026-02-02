@@ -30,8 +30,16 @@
 
 ### 方式一：一键安装（推荐）
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lynx-lee/filo/main/install.sh | bash
+```
+
+**Windows:**
+```powershell
+# 以管理员身份运行 PowerShell，然后执行：
+Set-ExecutionPolicy RemoteSigned -Scope Process
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lynx-lee/filo/main/install.ps1" -UseBasicParsing).Content
 ```
 
 ### 方式二：源码编译
