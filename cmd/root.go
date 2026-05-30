@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lynx-lee/filo/internal/agent"
 	"github.com/lynx-lee/filo/internal/classifier"
 	"github.com/lynx-lee/filo/internal/config"
 	"github.com/lynx-lee/filo/internal/llm"
@@ -31,6 +32,7 @@ var (
 	interactive bool   // 交互式审查模式
 	noLearning  bool   // 禁用学习功能
 	recursive   bool   // 递归扫描子目录
+	useAgents   bool   // 使用智能体模式
 )
 
 // rootCmd 根命令定义
@@ -75,6 +77,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "交互式审查")
 	rootCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "递归扫描子目录")
 	rootCmd.Flags().BoolVar(&noLearning, "no-learning", false, "禁用学习")
+	rootCmd.Flags().BoolVarP(&useAgents, "agents", "a", false, "使用智能体模式（实验性）")
 }
 
 // Execute 执行根命令
@@ -174,18 +177,40 @@ func runOrganize(cmd *cobra.Command, args []string) {
 	}
 
 	// ========== 步骤2: 智能分类 ==========
-	clf, err := classifier.NewClassifier()
-	if err != nil {
-		ui.Error("初始化分类器失败: %v", err)
-		return
-	}
-	defer clf.Close() // 确保分类器资源被释放
+	var results []classifier.Result
+	var clf *classifier.Classifier
+	
+	if useAgents {
+		// 使用智能体模式
+		ui.Title("🤖", "智能体模式")
+		coordinator, err := agent.NewCoordinator()
+		if err != nil {
+			ui.Error("初始化智能体协调器失败: %v", err)
+			return
+		}
+		defer coordinator.Shutdown()
+		
+		results, err = coordinator.ExecuteWorkflow(cmd.Context(), files, sourceDir, targetDir, verbose)
+		if err != nil {
+			ui.Error("智能体工作流执行失败: %v", err)
+			return
+		}
+	} else {
+		// 使用传统模式
+		var err error
+		clf, err = classifier.NewClassifier()
+		if err != nil {
+			ui.Error("初始化分类器失败: %v", err)
+			return
+		}
+		defer clf.Close() // 确保分类器资源被释放
 
-	// 执行分类
-	results, err := clf.Classify(files, verbose)
-	if err != nil {
-		ui.Error("分类失败: %v", err)
-		return
+		// 执行分类
+		results, err = clf.Classify(files, verbose)
+		if err != nil {
+			ui.Error("分类失败: %v", err)
+			return
+		}
 	}
 
 	// ========== 步骤3: 生成整理计划 ==========
@@ -193,7 +218,7 @@ func runOrganize(cmd *cobra.Command, args []string) {
 	organizer.PrintPlan(plan)
 
 	// ========== 步骤4: 交互式审查（可选）==========
-	if interactive {
+	if interactive && clf != nil {
 		plan = organizer.InteractiveReview(plan, clf)
 		organizer.PrintPlan(plan) // 显示修改后的计划
 	}

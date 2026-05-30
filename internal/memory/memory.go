@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/lynx-lee/filo/internal/config"
 	"github.com/lynx-lee/filo/internal/embedding"
@@ -50,6 +51,45 @@ type Memory struct {
 	db       *storage.Database   // 数据库连接
 	embedder embedding.Embedder  // 向量嵌入器
 	cfg      *config.Config      // 配置
+	cache    *ClassificationCache // 内存缓存
+}
+
+// ClassificationCache 分类结果缓存
+type ClassificationCache struct {
+	mu     sync.RWMutex
+	items  map[string]*Match
+	maxSize int
+}
+
+// NewClassificationCache 创建分类缓存
+func NewClassificationCache(maxSize int) *ClassificationCache {
+	return &ClassificationCache{
+		items:   make(map[string]*Match),
+		maxSize: maxSize,
+	}
+}
+
+// Get 从缓存获取分类结果
+func (c *ClassificationCache) Get(filename string) (*Match, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	match, exists := c.items[filename]
+	return match, exists
+}
+
+// Set 将分类结果存入缓存
+func (c *ClassificationCache) Set(filename string, match *Match) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// 如果缓存已满，删除最旧的项（简单策略：随机删除）
+	if len(c.items) >= c.maxSize {
+		for k := range c.items {
+			delete(c.items, k)
+			break
+		}
+	}
+	c.items[filename] = match
 }
 
 // ==================== 构造函数 ====================
@@ -66,6 +106,7 @@ func NewMemory() (*Memory, error) {
 		db:       db,
 		embedder: embedding.NewEmbedder(),
 		cfg:      config.Get(),
+		cache:    NewClassificationCache(1000), // 缓存1000个分类结果
 	}, nil
 }
 
@@ -78,12 +119,18 @@ func (m *Memory) Close() error {
 // ==================== 查询方法 ====================
 
 // Query 查询文件的分类记忆
-// 按优先级依次尝试: 规则匹配 -> 向量匹配 -> 历史匹配
+// 按优先级依次尝试: 缓存 -> 规则匹配 -> 向量匹配 -> 历史匹配
 // 返回置信度最高的匹配结果，如果都不满足阈值则返回 nil
 func (m *Memory) Query(filename string) *Match {
+	// 0. 先检查缓存（最快）
+	if match, exists := m.cache.Get(filename); exists {
+		return match
+	}
+
 	// 1. 规则匹配（最快，优先级最高）
 	if match := m.matchRules(filename); match != nil {
 		if match.Confidence >= m.cfg.SimilarityThreshold {
+			m.cache.Set(filename, match) // 存入缓存
 			return match
 		}
 	}
@@ -91,6 +138,7 @@ func (m *Memory) Query(filename string) *Match {
 	// 2. 向量匹配（语义相似度）
 	if match := m.matchVectors(filename); match != nil {
 		if match.Confidence >= m.cfg.SimilarityThreshold {
+			m.cache.Set(filename, match) // 存入缓存
 			return match
 		}
 	}
@@ -98,6 +146,7 @@ func (m *Memory) Query(filename string) *Match {
 	// 3. 历史匹配（关键词匹配）
 	if match := m.matchHistory(filename); match != nil {
 		if match.Confidence >= m.cfg.SimilarityThreshold {
+			m.cache.Set(filename, match) // 存入缓存
 			return match
 		}
 	}
@@ -163,7 +212,7 @@ func (m *Memory) matchVectors(filename string) *Match {
 		return nil
 	}
 
-	// 查找最相似的向量
+	// 查找最相似的向量（并行计算）
 	var best struct {
 		Filename    string
 		Category    string
@@ -171,13 +220,37 @@ func (m *Memory) matchVectors(filename string) *Match {
 		Similarity  float64
 	}
 
-	for _, v := range vectors {
-		sim := m.embedder.Similarity(queryVec, v.Vector)
-		if sim > best.Similarity {
-			best.Filename = v.Filename
-			best.Category = v.Category
-			best.Subcategory = v.Subcategory
-			best.Similarity = sim
+	// 使用 goroutine 池并行计算相似度
+	type simResult struct {
+		idx  int
+		sim  float64
+	}
+
+	results := make(chan simResult, len(vectors))
+	var wg sync.WaitGroup
+
+	for i, v := range vectors {
+		wg.Add(1)
+		go func(index int, vec storage.VectorRecord) {
+			defer wg.Done()
+			sim := m.embedder.Similarity(queryVec, vec.Vector)
+			results <- simResult{index, sim}
+		}(i, v)
+	}
+
+	// 启动一个 goroutine 等待所有计算完成并关闭 channel
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 收集结果并找到最佳匹配
+	for result := range results {
+		if result.sim > best.Similarity {
+			best.Filename = vectors[result.idx].Filename
+			best.Category = vectors[result.idx].Category
+			best.Subcategory = vectors[result.idx].Subcategory
+			best.Similarity = result.sim
 		}
 	}
 

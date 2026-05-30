@@ -144,16 +144,19 @@ func (c *Client) Chat(ctx context.Context, messages []ChatMessage, jsonMode bool
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	startTime := time.Now() // 记录请求开始时间
 	resp, err := c.httpClient.Do(req)
+	elapsed := time.Since(startTime) // 计算耗时
+	
 	if err != nil {
-		return "", fmt.Errorf("请求失败: %w", err)
+		return "", fmt.Errorf("请求失败: %w (耗时: %v)", err, elapsed)
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API错误 %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("API错误 %d: %s (耗时: %v)", resp.StatusCode, string(body), elapsed)
 	}
 
 	// 解析响应
@@ -249,25 +252,47 @@ func (c *Client) ClassifyFiles(ctx context.Context, files []map[string]interface
 // buildSystemPrompt 构建系统提示词
 // 定义分类规则和输出格式要求
 func buildSystemPrompt(rules []map[string]string) string {
-	prompt := `你是专业的文件分类助手。根据文件名智能分类，理解文件的用途和含义。
+	prompt := `你是一个专业的文件分类专家。请根据文件名智能分类，理解文件的实际用途和语义。
 
-分类原则：
-1. 根据文件名语义分类，不要仅看扩展名
-2. 识别项目名、客户名、业务领域
-3. 注意日期、版本号、关键词
-4. 相关文件归入同一类别
+【分类原则】
+1. 基于文件名语义进行分类，不要仅看扩展名
+2. 识别项目名、客户名、业务领域关键词
+3. 注意日期、版本号、状态标识（如 draft, final, v2）
+4. 相关文件应归入同一类别
+5. 如果无法确定，使用"其他"分类
 
-常用分类：
-- 文档：合同、报告、方案、笔记、简历
-- 图片：照片、截图、设计稿、图标
-- 视频：电影、教程、录屏、会议
-- 音频：音乐、录音、播客
-- 代码：源码、配置、脚本
-- 压缩包：备份、资料包
-- 安装包：软件、工具
-- 数据：表格、数据库、导出
+【常用分类体系】
+- 工作文档：合同、报告、方案、会议纪要、简历
+- 个人照片：自拍、旅行、聚会、证件照
+- 设计素材：UI稿、图标、海报、Logo
+- 视频资料：教程、录屏、会议记录、电影
+- 音频文件：音乐、录音、播客、语音笔记
+- 代码文件：源码、配置文件、脚本、数据库
+- 压缩归档：备份、资料包、安装包
+- 数据表格：Excel、CSV、数据库导出
+- 演示文稿：PPT、Keynote、演讲稿
+- 电子书籍：PDF书籍、技术文档、论文
 
-必须返回有效JSON。`
+【输出要求】
+1. 必须返回有效的 JSON 格式
+2. confidence 必须是 0.0-1.0 之间的浮点数
+3. reasoning 用中文简要说明分类理由（不超过50字）
+4. keywords 提取2-5个关键特征词
+5. category 和 subcategory 要具体明确
+
+【示例输出格式】
+{
+  "classifications": [
+    {
+      "filename": "2024年度财务报告.pdf",
+      "category": "工作文档",
+      "subcategory": "财务报告",
+      "confidence": 0.95,
+      "reasoning": "包含年份和业务类型关键词，属于正式财务文档",
+      "keywords": ["年度", "财务", "报告"]
+    }
+  ]
+}`
 
 	// 如果有已学习的规则，添加到提示词中
 	if len(rules) > 0 {

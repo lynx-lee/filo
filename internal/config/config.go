@@ -16,7 +16,7 @@ import (
 
 // 版本和作者信息常量
 const (
-	Version   = "2.0.0"                          // 程序版本号
+	Version   = "2.1.0-alpha"                    // 程序版本号
 	BuildDate = "2026"                           // 构建日期
 	Author    = "lynx-lee"                       // 作者
 	Homepage  = "https://github.com/lynx-lee/filo" // 项目主页
@@ -98,7 +98,36 @@ func (c *Config) Load() error {
 	if err != nil {
 		return err // 文件不存在时返回错误，使用默认配置
 	}
-	return json.Unmarshal(data, c)
+	if err := json.Unmarshal(data, c); err != nil {
+		return err
+	}
+	// 验证配置有效性
+	return c.Validate()
+}
+
+// Validate 验证配置参数的有效性
+func (c *Config) Validate() error {
+	// 验证温度范围
+	if c.Temperature < 0 || c.Temperature > 1 {
+		c.Temperature = 0.3 // 重置为默认值
+	}
+	
+	// 验证置信度阈值
+	if c.ConfidenceThreshold < 0 || c.ConfidenceThreshold > 1 {
+		c.ConfidenceThreshold = 0.7
+	}
+	
+	// 验证相似度阈值
+	if c.SimilarityThreshold < 0 || c.SimilarityThreshold > 1 {
+		c.SimilarityThreshold = 0.85
+	}
+	
+	// 验证批次大小
+	if c.BatchSize <= 0 || c.BatchSize > 50 {
+		c.BatchSize = 15
+	}
+	
+	return nil
 }
 
 // Save 保存配置到文件

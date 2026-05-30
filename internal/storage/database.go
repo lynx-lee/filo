@@ -79,6 +79,11 @@ func NewDatabase() (*Database, error) {
 	// NORMAL 模式在性能和数据安全性之间取得平衡
 	db.Exec("PRAGMA synchronous=NORMAL")
 
+	// 配置连接池参数
+	db.SetMaxOpenConns(25)                 // 最大打开连接数
+	db.SetMaxIdleConns(10)                 // 最大空闲连接数
+	db.SetConnMaxLifetime(5 * time.Minute) // 连接最大生命周期
+
 	// 创建数据库管理器实例并初始化表结构
 	d := &Database{db: db}
 	if err := d.init(); err != nil {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 
+	"github.com/lynx-lee/filo/internal/checkpoint"
 	"github.com/lynx-lee/filo/internal/config"
 	"github.com/lynx-lee/filo/internal/llm"
 	"github.com/lynx-lee/filo/internal/memory"
@@ -35,6 +36,7 @@ type Result struct {
 	Reasoning   string           // 分类理由
 	Source      string           // 来源: memory（记忆）, llm（AI推理）
 	Keywords    []string         // 提取的关键词
+	Metadata    map[string]string // 元数据（用于优化器标记等）
 }
 
 // Classifier 分类器
@@ -45,6 +47,7 @@ type Classifier struct {
 	cfg        *config.Config   // 配置
 	db         *storage.Database // 数据库（用于记录模型性能）
 	batchID    string           // 当前批次 ID
+	checkpoint *checkpoint.Manager // 检查点管理器
 	modelStats struct {         // 模型性能统计
 		StartTime     time.Time
 		TotalTimeMs   int64
@@ -73,11 +76,12 @@ func NewClassifier() (*Classifier, error) {
 	batchID := time.Now().Format("20060102_150405")
 
 	return &Classifier{
-		memory:  mem,
-		llm:     llm.NewClient(),
-		cfg:     config.Get(),
-		db:      db,
-		batchID: batchID,
+		memory:     mem,
+		llm:        llm.NewClient(),
+		cfg:        config.Get(),
+		db:         db,
+		batchID:    batchID,
+		checkpoint: checkpoint.NewManager(),
 	}, nil
 }
 
@@ -97,6 +101,27 @@ func (c *Classifier) Close() error {
 // GetBatchID 获取当前批次 ID
 func (c *Classifier) GetBatchID() string {
 	return c.batchID
+}
+
+// GetModelStats 获取模型性能统计
+func (c *Classifier) GetModelStats() map[string]interface{} {
+	if c.modelStats.FileCount == 0 {
+		return map[string]interface{}{
+			"file_count":   0,
+			"avg_time_ms":  0,
+			"total_time":   "0s",
+		}
+	}
+	
+	avgTime := c.modelStats.TotalTimeMs / int64(c.modelStats.FileCount)
+	avgConfidence := c.modelStats.TotalConfidence / float64(c.modelStats.FileCount)
+	
+	return map[string]interface{}{
+		"file_count":       c.modelStats.FileCount,
+		"avg_time_ms":      avgTime,
+		"total_time":       time.Duration(c.modelStats.TotalTimeMs) * time.Millisecond,
+		"avg_confidence":   avgConfidence,
+	}
 }
 
 // ==================== 核心分类方法 ====================
@@ -202,6 +227,9 @@ func (c *Classifier) Classify(files []scanner.FileInfo, verbose bool) ([]Result,
 		return order[results[i].FileInfo.Path] < order[results[j].FileInfo.Path]
 	})
 
+	// 清除检查点（任务完成）
+	c.checkpoint.ClearCheckpoint()
+
 	return results, nil
 }
 
@@ -243,10 +271,28 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 			}
 		}
 
-		// 调用 LLM API（带超时）
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-		resp, err := c.llm.ClassifyFiles(ctx, batchData, rules)
-		cancel()
+		// 调用 LLM API（带超时和重试）
+		var resp map[string]interface{}
+		var err error
+		maxRetries := 2 // 最多重试2次
+		
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			resp, err = c.llm.ClassifyFiles(ctx, batchData, rules)
+			cancel()
+			
+			if err == nil {
+				break // 成功则退出重试循环
+			}
+			
+			// 如果是最后一次尝试，记录错误并使用默认分类
+			if attempt < maxRetries {
+				if verbose {
+					ui.Warning("LLM调用失败，第%d/%d次重试...", attempt, maxRetries-1)
+				}
+				time.Sleep(2 * time.Second) // 等待2秒后重试
+			}
+		}
 
 		if err != nil {
 			// LLM 调用失败，使用默认分类

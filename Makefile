@@ -3,10 +3,10 @@
 # https://github.com/lynx-lee/filo
 
 APP_NAME := filo
-VERSION := 2.0.0
+VERSION := 2.1.0-alpha
 AUTHOR := lynx-lee
 BUILD_TIME := $(shell date +%Y%m%d)
-LDFLAGS := -ldflags="-s -w -X filo/internal/config.Version=$(VERSION) -X filo/internal/config.BuildDate=$(BUILD_TIME)"
+LDFLAGS := -ldflags="-s -w -X github.com/lynx-lee/filo/internal/config.Version=$(VERSION) -X github.com/lynx-lee/filo/internal/config.BuildDate=$(BUILD_TIME)"
 
 .PHONY: all build clean install test run
 
