@@ -7,7 +7,7 @@
 
 package main
 
-import "filo/cmd"
+import "github.com/lynx-lee/filo/cmd"
 
 // main 程序入口函数
 // 调用 cmd.Execute() 启动命令行应用

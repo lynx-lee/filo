@@ -20,13 +20,14 @@ build:
 	@echo "✅ Build complete: bin/$(APP_NAME)"
 
 # 所有平台构建
+# 注意：Windows 交叉编译可能需要在本机执行或使用 CI/CD
 build-all: build-darwin build-linux build-windows
 	@echo "✅ All platforms built"
 
 build-darwin:
 	@echo "🍎 Building for macOS..."
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(APP_NAME)-mac-amd64 .
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(APP_NAME)-mac-arm64 .
+	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(APP_NAME)-mac-amd64 .
+	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(APP_NAME)-mac-arm64 .
 
 build-linux:
 	@echo "🐧 Building for Linux..."
@@ -35,7 +36,9 @@ build-linux:
 
 build-windows:
 	@echo "🪟 Building for Windows..."
-	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/$(APP_NAME)-windows.exe .
+	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/$(APP_NAME)-windows.exe .
+	@GOOS=windows GOARCH=arm64 go build $(LDFLAGS) -o bin/$(APP_NAME)-windows-arm64.exe .
+	@GOOS=windows GOARCH=386 go build $(LDFLAGS) -o bin/$(APP_NAME)-windows-x86.exe .
 
 # 安装到系统
 install: build

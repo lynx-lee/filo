@@ -13,13 +13,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"filo/internal/classifier"
-	"filo/internal/config"
-	"filo/internal/llm"
-	"filo/internal/organizer"
-	"filo/internal/scanner"
-	"filo/internal/storage"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/classifier"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/llm"
+	"github.com/lynx-lee/filo/internal/organizer"
+	"github.com/lynx-lee/filo/internal/scanner"
+	"github.com/lynx-lee/filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // 命令行参数变量

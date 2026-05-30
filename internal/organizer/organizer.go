@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"filo/internal/classifier"
-	"filo/internal/storage"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/classifier"
+	"github.com/lynx-lee/filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // ==================== 常量定义 ====================
@@ -234,7 +234,7 @@ func Execute(plan *Plan, clf *classifier.Classifier, verbose bool) ExecuteResult
 	for folder, files := range plan.Actions {
 		// 创建目标文件夹
 		targetFolder := filepath.Join(plan.TargetDir, folder)
-		os.MkdirAll(targetFolder, 0755)
+		os.MkdirAll(targetFolder, 0755) // Unix权限，Windows自动忽略
 
 		// 移动文件
 		for _, r := range files {

@@ -1,4 +1,4 @@
-module filo
+module github.com/lynx-lee/filo
 
 go 1.21
 

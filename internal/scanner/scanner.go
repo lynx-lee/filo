@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // ==================== 类型定义 ====================

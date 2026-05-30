@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"filo/internal/config"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // versionCmd 版本命令定义

@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"filo/internal/storage"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // undoCmd 撤销命令定义

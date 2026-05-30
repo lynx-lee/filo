@@ -42,6 +42,12 @@ Set-ExecutionPolicy RemoteSigned -Scope Process
 Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/lynx-lee/filo/main/install.ps1" -UseBasicParsing).Content
 ```
 
+> **注意**：
+> - 需要管理员权限才能安装到 `C:\Program Files\Filo` 并添加到系统 PATH
+> - 如果 Windows Defender 拦截，请点击“仍要运行”
+> - 支持 x86_64、ARM64 和 x86 架构
+> - **当前版本提示**：由于尚未发布正式 Release，一键安装可能会失败。建议使用下面的源码编译方式或 Go 安装
+
 ### 方式二：源码编译
 
 ```bash
@@ -52,6 +58,14 @@ cd filo
 # 编译安装
 make build
 make install
+```
+
+**Windows 用户：**
+```powershell
+# 在 PowerShell 中执行
+git clone https://github.com/lynx-lee/filo.git
+cd filo
+make build  # 或者: go build -o filo.exe .
 ```
 
 ### 方式三：Go 安装
@@ -321,12 +335,17 @@ make run
 # 构建
 make build
 
-# 构建所有平台
+# 构建所有平台（包括 Windows x86_64/ARM64/x86）
 make build-all
 
 # 运行测试
 make test
 ```
+
+**Windows 开发者注意：**
+- 需要安装 [Make for Windows](https://gnuwin32.sourceforge.net/packages/make.htm) 或使用 WSL
+- 或者直接使用 Go 命令：`go build -o filo.exe .`
+- **交叉编译提示**：由于 SQLite 依赖限制，建议在 Windows 本机执行 `make build-windows` 进行构建
 
 ## 📝 Changelog
 

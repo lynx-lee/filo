@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"filo/internal/classifier"
-	"filo/internal/config"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/classifier"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // statsCmd 统计命令定义

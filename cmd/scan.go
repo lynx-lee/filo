@@ -9,8 +9,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"filo/internal/scanner"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/scanner"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // scanCmd 扫描命令定义

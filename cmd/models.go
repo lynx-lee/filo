@@ -11,10 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"filo/internal/config"
-	"filo/internal/llm"
-	"filo/internal/storage"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/llm"
+	"github.com/lynx-lee/filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // modelsCmd 模型管理命令定义

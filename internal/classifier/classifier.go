@@ -15,12 +15,12 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 
-	"filo/internal/config"
-	"filo/internal/llm"
-	"filo/internal/memory"
-	"filo/internal/scanner"
-	"filo/internal/storage"
-	"filo/internal/ui"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/llm"
+	"github.com/lynx-lee/filo/internal/memory"
+	"github.com/lynx-lee/filo/internal/scanner"
+	"github.com/lynx-lee/filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/ui"
 )
 
 // ==================== 类型定义 ====================

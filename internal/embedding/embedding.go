@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"filo/internal/llm"
+	"github.com/lynx-lee/filo/internal/llm"
 )
 
 // ==================== 接口定义 ====================

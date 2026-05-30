@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"time"
 
-	"filo/internal/config"
+	"github.com/lynx-lee/filo/internal/config"
 )
 
 // ==================== 类型定义 ====================

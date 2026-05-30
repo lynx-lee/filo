@@ -87,7 +87,7 @@ func (c *Config) initPaths() {
 	homeDir, _ := os.UserHomeDir()
 	c.DataDir = filepath.Join(homeDir, ".filo")           // 数据目录
 	c.DBPath = filepath.Join(c.DataDir, "memory.db")      // SQLite 数据库路径
-	os.MkdirAll(c.DataDir, 0755)                          // 创建目录
+	os.MkdirAll(c.DataDir, 0755)                          // 创建目录（Unix权限，Windows自动忽略）
 }
 
 // Load 从文件加载配置
@@ -109,7 +109,7 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, 0644) // Unix权限，Windows自动忽略
 }
 
 // SetModel 设置 LLM 模型

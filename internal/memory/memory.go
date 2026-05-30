@@ -12,9 +12,9 @@ import (
 	"regexp"
 	"strings"
 
-	"filo/internal/config"
-	"filo/internal/embedding"
-	"filo/internal/storage"
+	"github.com/lynx-lee/filo/internal/config"
+	"github.com/lynx-lee/filo/internal/embedding"
+	"github.com/lynx-lee/filo/internal/storage"
 )
 
 // ==================== 常量定义 ====================

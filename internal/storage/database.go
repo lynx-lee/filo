@@ -15,7 +15,7 @@ import (
 	// 使用纯 Go 实现的 SQLite 驱动，无需 CGO
 	_ "modernc.org/sqlite"
 
-	"filo/internal/config"
+	"github.com/lynx-lee/filo/internal/config"
 )
 
 // Database 数据库管理器
