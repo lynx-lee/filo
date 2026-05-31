@@ -1,2 +1,24 @@
+# macOS
 .DS_Store
-./bin
+
+# 编译输出
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 配置文件（可选）
+# .filo/
