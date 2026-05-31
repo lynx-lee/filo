@@ -238,6 +238,9 @@ filo ~/Downloads -a -r
   Learner: 总反馈数=0, 准确率=N/A
 ```
 
+### 其他常用命令
+
+```bash
 # 查看学习统计
 filo stats
 
@@ -319,6 +322,15 @@ filo/
 │   ├── undo.go                  # 撤销操作
 │   └── version.go               # 版本信息
 └── internal/
+    ├── agent/                   # 智能体系统 (v2.1+)
+    │   ├── agent.go             # 智能体基础接口
+    │   ├── planner.go           # 规划器智能体
+    │   ├── executor.go          # 执行器智能体
+    │   ├── optimizer.go         # 优化器智能体
+    │   ├── evaluator.go         # 评估器智能体
+    │   ├── learner.go           # 学习器智能体
+    │   ├── coordinator.go       # 协调器（5阶段工作流）
+    │   └── communication.go     # EventBus 通信协议
     ├── config/config.go         # 配置管理
     ├── llm/ollama.go            # Ollama API 客户端
     ├── embedding/embedding.go   # 向量嵌入（本地/Ollama）
