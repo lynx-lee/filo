@@ -154,6 +154,7 @@ func (c *Classifier) Classify(files []scanner.FileInfo, verbose bool) ([]Result,
 				Confidence:  match.Confidence,
 				Reasoning:   match.Reasoning,
 				Source:      "memory",
+				Metadata:    make(map[string]string),
 			})
 
 			if verbose {
@@ -277,7 +278,8 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 		maxRetries := 2 // 最多重试2次
 		
 		for attempt := 1; attempt <= maxRetries; attempt++ {
-			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			// 增加超时时间到 300 秒（5分钟），适应大批次处理
+			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 			resp, err = c.llm.ClassifyFiles(ctx, batchData, rules)
 			cancel()
 			
@@ -285,11 +287,13 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 				break // 成功则退出重试循环
 			}
 			
-			// 如果是最后一次尝试，记录错误并使用默认分类
+			// 记录详细错误信息
+			if verbose {
+				ui.Warning("LLM调用失败 (尝试 %d/%d): %v", attempt, maxRetries, err)
+			}
+			
+			// 如果不是最后一次尝试，等待后重试
 			if attempt < maxRetries {
-				if verbose {
-					ui.Warning("LLM调用失败，第%d/%d次重试...", attempt, maxRetries-1)
-				}
 				time.Sleep(2 * time.Second) // 等待2秒后重试
 			}
 		}
@@ -304,6 +308,7 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 					Confidence:  0,
 					Reasoning:   fmt.Sprintf("分类失败: %v", err),
 					Source:      "error",
+					Metadata:    make(map[string]string),
 				})
 			}
 		} else {
@@ -326,6 +331,7 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 					Reasoning:   getString(clsMap, "reasoning", ""),
 					Source:      "llm",
 					Keywords:    getStringSlice(clsMap, "keywords"),
+					Metadata:    make(map[string]string),
 				})
 			}
 		}
