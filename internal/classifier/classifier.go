@@ -278,8 +278,8 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 		maxRetries := 2 // 最多重试2次
 		
 		for attempt := 1; attempt <= maxRetries; attempt++ {
-			// 增加超时时间到 300 秒（5分钟），适应大批次处理
-			ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+			// 增加超时时间到 600 秒（10分钟），适应 qwen3:8b 等较慢的模型
+			ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 			resp, err = c.llm.ClassifyFiles(ctx, batchData, rules)
 			cancel()
 			

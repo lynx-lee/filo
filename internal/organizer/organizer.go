@@ -261,7 +261,10 @@ func Execute(plan *Plan, clf *classifier.Classifier, verbose bool) ExecuteResult
 				}
 			} else {
 				result.Success++
-				clf.Confirm(r) // 成功移动后确认分类，学习规则
+				// 只有在使用传统模式时才调用 Confirm（学习规则）
+				if clf != nil {
+					clf.Confirm(r) // 成功移动后确认分类，学习规则
+				}
 				// 记录成功的操作（用于撤销）
 				if db != nil {
 					db.AddOperationLog(batchID, src, dst, r.FileInfo.Name, r.Category, r.Subcategory, "success")
