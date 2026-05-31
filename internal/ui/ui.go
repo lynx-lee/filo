@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+
+	"github.com/lynx-lee/filo/internal/config"
 )
 
 // ==================== 颜色定义 ====================
@@ -40,7 +42,7 @@ func Banner() {
 ` + Cyan(`  ██╔══╝  ██║██║     ██║   ██║`) + `
 ` + Cyan(`  ██║     ██║███████╗╚██████╔╝`) + `
 ` + Cyan(`  ╚═╝     ╚═╝╚══════╝ ╚═════╝ `) + `
-` + Gray(`  文件智理 · 越用越懂你`) + ` ` + Gray(`v2.0`) + `
+` + Gray(`  文件智理 · 越用越懂你`) + ` ` + Gray(`v`+config.Version) + `
 ` + Gray(`  by lynx-lee`) + `
 `
 	fmt.Println(banner)
