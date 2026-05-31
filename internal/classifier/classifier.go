@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -239,6 +240,7 @@ func (c *Classifier) Classify(files []scanner.FileInfo, verbose bool) ([]Result,
 func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[string]string, verbose bool) ([]Result, error) {
 	var results []Result
 	batchSize := c.cfg.BatchSize // 每批处理的文件数
+	maxConcurrentBatches := 3    // 最大并发批次数（避免过多请求）
 
 	// 创建进度条
 	bar := progressbar.NewOptions(len(files),
@@ -253,6 +255,11 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 		progressbar.OptionShowCount(),
 	)
 
+	// 使用 channel 控制并发
+	semaphore := make(chan struct{}, maxConcurrentBatches)
+	var wg sync.WaitGroup
+	var mu sync.Mutex // 保护 results 切片
+
 	// 分批处理
 	for i := 0; i < len(files); i += batchSize {
 		end := i + batchSize
@@ -261,84 +268,101 @@ func (c *Classifier) classifyWithLLM(files []scanner.FileInfo, rules []map[strin
 		}
 
 		batch := files[i:end]
+		batchIndex := i / batchSize
 
-		// 准备批次数据
-		batchData := make([]map[string]interface{}, len(batch))
-		for j, f := range batch {
-			batchData[j] = map[string]interface{}{
-				"name":      f.Name,
-				"extension": f.Extension,
-				"size":      f.Size,
-			}
-		}
+		// 获取信号量
+		semaphore <- struct{}{}
+		wg.Add(1)
 
-		// 调用 LLM API（带超时和重试）
-		var resp map[string]interface{}
-		var err error
-		maxRetries := 2 // 最多重试2次
-		
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			// 增加超时时间到 600 秒（10分钟），适应 qwen3:8b 等较慢的模型
-			ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-			resp, err = c.llm.ClassifyFiles(ctx, batchData, rules)
-			cancel()
-			
-			if err == nil {
-				break // 成功则退出重试循环
-			}
-			
-			// 记录详细错误信息
-			if verbose {
-				ui.Warning("LLM调用失败 (尝试 %d/%d): %v", attempt, maxRetries, err)
-			}
-			
-			// 如果不是最后一次尝试，等待后重试
-			if attempt < maxRetries {
-				time.Sleep(2 * time.Second) // 等待2秒后重试
-			}
-		}
+		go func(batchIdx int, batchFiles []scanner.FileInfo) {
+			defer wg.Done()
+			defer func() { <-semaphore }() // 释放信号量
 
-		if err != nil {
-			// LLM 调用失败，使用默认分类
-			for _, f := range batch {
-				results = append(results, Result{
-					FileInfo:    f,
-					Category:    "未分类",
-					Subcategory: "其他",
-					Confidence:  0,
-					Reasoning:   fmt.Sprintf("分类失败: %v", err),
-					Source:      "error",
-					Metadata:    make(map[string]string),
-				})
-			}
-		} else {
-			// 解析 LLM 返回的分类结果
-			classifications, _ := resp["classifications"].([]interface{})
-			for j, cls := range classifications {
-				if j >= len(batch) {
-					break
+			// 准备批次数据
+			batchData := make([]map[string]interface{}, len(batchFiles))
+			for j, f := range batchFiles {
+				batchData[j] = map[string]interface{}{
+					"name":      f.Name,
+					"extension": f.Extension,
+					"size":      f.Size,
 				}
-				clsMap, _ := cls.(map[string]interface{})
-				if clsMap == nil {
-					continue
+			}
+
+			// 调用 LLM API（带超时和重试）
+			var resp map[string]interface{}
+			var err error
+			maxRetries := 2 // 最多重试2次
+
+			for attempt := 1; attempt <= maxRetries; attempt++ {
+				// 增加超时时间到 600 秒（10分钟），适应 qwen3:8b 等较慢的模型
+				ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+				resp, err = c.llm.ClassifyFiles(ctx, batchData, rules)
+				cancel()
+
+				if err == nil {
+					break // 成功则退出重试循环
 				}
 
-				results = append(results, Result{
-					FileInfo:    batch[j],
-					Category:    getString(clsMap, "category", "未分类"),
-					Subcategory: getString(clsMap, "subcategory", "其他"),
-					Confidence:  getFloat(clsMap, "confidence", 0.5),
-					Reasoning:   getString(clsMap, "reasoning", ""),
-					Source:      "llm",
-					Keywords:    getStringSlice(clsMap, "keywords"),
-					Metadata:    make(map[string]string),
-				})
-			}
-		}
+				// 记录详细错误信息
+				if verbose {
+					ui.Warning("LLM调用失败 (尝试 %d/%d): %v", attempt, maxRetries, err)
+				}
 
-		bar.Add(len(batch)) // 更新进度条
+				// 如果不是最后一次尝试，等待后重试
+				if attempt < maxRetries {
+					time.Sleep(2 * time.Second) // 等待2秒后重试
+				}
+			}
+
+			// 收集结果（需要加锁保护）
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				// LLM 调用失败，使用默认分类
+				for _, f := range batchFiles {
+					results = append(results, Result{
+						FileInfo:    f,
+						Category:    "未分类",
+						Subcategory: "其他",
+						Confidence:  0,
+						Reasoning:   fmt.Sprintf("分类失败: %v", err),
+						Source:      "error",
+						Metadata:    make(map[string]string),
+					})
+				}
+			} else {
+				// 解析 LLM 返回的分类结果
+				classifications, _ := resp["classifications"].([]interface{})
+				for j, cls := range classifications {
+					if j >= len(batchFiles) {
+						break
+					}
+					clsMap, _ := cls.(map[string]interface{})
+					if clsMap == nil {
+						continue
+					}
+
+					results = append(results, Result{
+						FileInfo:    batchFiles[j],
+						Category:    getString(clsMap, "category", "未分类"),
+						Subcategory: getString(clsMap, "subcategory", "其他"),
+						Confidence:  getFloat(clsMap, "confidence", 0.5),
+						Reasoning:   getString(clsMap, "reasoning", ""),
+						Source:      "llm",
+						Keywords:    getStringSlice(clsMap, "keywords"),
+						Metadata:    make(map[string]string),
+					})
+				}
+			}
+
+			// 更新进度条
+			bar.Add(len(batchFiles))
+		}(batchIndex, batch)
 	}
 
+	// 等待所有批次完成
+	wg.Wait()
 	fmt.Println() // 进度条结束后换行
 	return results, nil
 }

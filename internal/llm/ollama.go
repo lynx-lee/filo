@@ -122,18 +122,23 @@ func (c *Client) Chat(ctx context.Context, messages []ChatMessage, jsonMode bool
 	cfg := config.Get()
 
 	// 构建请求体
+	options := map[string]interface{}{
+		"temperature": cfg.Temperature, // 使用配置的温度
+		"num_predict": 4096,            // 最大生成 token 数
+	}
+
 	payload := map[string]interface{}{
 		"model":    c.model,
 		"messages": messages,
-		"stream":   false, // 非流式输出
-		"options": map[string]interface{}{
-			"temperature": cfg.Temperature, // 使用配置的温度
-		},
+		"stream":   false, // 非流式输出（批量分类需要完整 JSON）
+		"options":  options,
 	}
 
 	// JSON 模式：强制模型输出 JSON 格式
 	if jsonMode {
 		payload["format"] = "json"
+		// 关闭 qwen3 的 thinking 模式，加速响应
+		options["thinking"] = false
 	}
 
 	// 发送 POST 请求
